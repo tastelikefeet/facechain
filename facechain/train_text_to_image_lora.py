@@ -284,7 +284,7 @@ def parse_args():
     parser.add_argument("--train_text_encoder", action="store_true", help="Whether to train the text encoder")
 
     # lora args
-    parser.add_argument("--use_peft", action="store_true", help="Whether to use peft to support lora")
+    parser.add_argument("--use_swift", action="store_true", help="Whether to use swift to support lora")
     parser.add_argument("--lora_r", type=int, default=4, help="Lora rank, only used if use_lora is True")
     parser.add_argument("--lora_alpha", type=int, default=32, help="Lora alpha, only used if lora is True")
     parser.add_argument("--lora_dropout", type=float, default=0.0, help="Lora dropout, only used if use_lora is True")
@@ -539,7 +539,7 @@ def main():
             ).repo_id
 
     ## Download foundation Model
-    user_agent = {'invoked_by': 'trainer', 'third_party':'facechain'}
+    user_agent = {'invoked_by': 'trainer', 'third_party': 'facechain'}
     model_dir = snapshot_download(args.pretrained_model_name_or_path, revision=args.revision, user_agent=user_agent)
 
     if args.sub_path is not None and len(args.sub_path) > 0:
@@ -566,10 +566,11 @@ def main():
     elif accelerator.mixed_precision == "bf16":
         weight_dtype = torch.bfloat16
 
-    if args.use_peft:
-        from peft import LoraConfig, LoraModel, get_peft_model_state_dict, set_peft_model_state_dict
+    if args.use_swift:
+        from swift import LoraConfig, get_peft_model_state_dict, get_peft_model
+        from peft import set_peft_model_state_dict
 
-        UNET_TARGET_MODULES = ["to_q", "to_v", "query", "value"]
+        UNET_TARGET_MODULES = ["to_q", "to_k", "to_v", "to_out.0"]
         TEXT_ENCODER_TARGET_MODULES = ["q_proj", "v_proj"]
 
         config = LoraConfig(
@@ -579,7 +580,7 @@ def main():
             lora_dropout=args.lora_dropout,
             bias=args.lora_bias,
         )
-        unet = LoraModel(config, unet)
+        unet = get_peft_model(unet, config)
 
         vae.requires_grad_(False)
         if args.train_text_encoder:
@@ -590,7 +591,7 @@ def main():
                 lora_dropout=args.lora_text_encoder_dropout,
                 bias=args.lora_text_encoder_bias,
             )
-            text_encoder = LoraModel(config, text_encoder)
+            text_encoder = get_peft_model(text_encoder, config)
     else:
         # freeze parameters of models to save more memory
         unet.requires_grad_(False)
@@ -670,7 +671,7 @@ def main():
     else:
         optimizer_cls = torch.optim.AdamW
 
-    if args.use_peft:
+    if args.use_swift:
         # Optimizer creation
         params_to_optimize = (
             itertools.chain(unet.parameters(), text_encoder.parameters())
@@ -813,7 +814,7 @@ def main():
     )
 
     # Prepare everything with our `accelerator`.
-    if args.use_peft:
+    if args.use_swift:
         if args.train_text_encoder:
             unet, text_encoder, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                 unet, text_encoder, optimizer, train_dataloader, lr_scheduler
@@ -931,7 +932,7 @@ def main():
                 # Backpropagate
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
-                    if args.use_peft:
+                    if args.use_swift:
                         params_to_clip = (
                             itertools.chain(unet.parameters(), text_encoder.parameters())
                             if args.train_text_encoder
@@ -1008,7 +1009,7 @@ def main():
     # Save the lora layers
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
-        if args.use_peft:
+        if args.use_swift:
             lora_config = {}
             unwarpped_unet = accelerator.unwrap_model(unet)
             state_dict = get_peft_model_state_dict(unwarpped_unet, state_dict=accelerator.get_state_dict(unet))
@@ -1052,7 +1053,7 @@ def main():
         model_dir, torch_dtype=weight_dtype
     )
 
-    if args.use_peft:
+    if args.use_swift:
 
         def load_and_set_lora_ckpt(pipe, ckpt_dir, global_step, device, dtype):
             with open(os.path.join(args.output_dir, f"{global_step}_lora_config.json"), "r") as f:
