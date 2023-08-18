@@ -38,27 +38,22 @@ FaceChain is powered by [ModelScope](https://github.com/modelscope/modelscope).
     - Allow users to select different style models for training distinct types of Digital-Twins.
   - Installation
     - Refer to [Installation Guide](#installation-guide)
-  - Execution
-  ```shell
-    cd facechain/advanced-style
-    python3 app.py
-  ```
+  - Usage
+    - Select  "凤冠霞帔(Chinese traditional gorgeous suit)" on the inference tab.
+    - Using this style will ignore the alternative prompts.
   - Exampled outcomes
   ![image](resources/style_lora_xiapei.jpg)
   - Reference
     - [xiapei lora model](https://www.liblibai.com/modelinfo/f746450340a3a932c99be55c1a82d20c)
     - For more LoRA styles, refer to [Civitai](https://civitai.com/)
-
+  
 - Support customizable prompts
   - Description
     - Allow users to achieve various portrait styles with customized prompts.
   - Installation
     - Refer to [Installation Guide](#installation-guide)
-  - Execution
-  ```shell
-    cd facechain/advanced-prompt
-    python3 app.py
-  ```
+  - Usage
+    - Select the alternative prompts on the inference tab.
   - Exampled outcomes (prompt: wearing an elegant evening gown)
     ![image](resources/prompt_evening_gown.jpg)
 
@@ -86,8 +81,6 @@ The following installation methods are supported:
 ### 1. ModelScope notebook【recommended】
 
    The ModelScope notebook has a free tier that allows you to run the FaceChain application, refer to [ModelScope Notebook](https://modelscope.cn/my/mynotebook/preset)
-   
-    In addition to ModelScope notebook and ECS, I would suggest that we add that user may also start DSW instance with the option of ModelScope (GPU) image, to create a ready-to-use environment.
 
 ```shell
 # Step1: 我的notebook -> PAI-DSW -> GPU环境
@@ -214,9 +207,9 @@ You can find the generated personal digital image photos in the `output_dir`.
 
 # Algorithm Introduction
 
-## Principle
+## Architectural Overview
 
-The ability of the personal portrait model comes from the text generation image function of the Stable Diffusion model. It inputs a piece of text or a series of prompt words and outputs corresponding images. We consider the main factors that affect the generation effect of personal portraits: portrait style information and user character information. For this, we use the style LoRA model trained offline and the face LoRA model trained online to learn the above information. LoRA is a fine-tuning model with fewer trainable parameters. In Stable Diffusion, the information of the input image can be injected into the LoRA model by the way of text generation image training with a small amount of input image. Therefore, the ability of the personal portrait model is divided into training and inference stages. The training stage generates image and text label data for fine-tuning the Stable Diffusion model, and obtains the face LoRA model. The inference stage generates personal portrait images based on the face LoRA model and style LoRA model.
+The ability of the personal portrait generation evolves around the text-to-image capability of Stable Diffusion model. We consider the main factors that affect the generation effect of personal portraits: portrait style information and user character information. For this, we use the style LoRA model trained offline and the face LoRA model trained online to learn the above information. LoRA is a fine-tuning model with fewer trainable parameters. In Stable Diffusion, the information of the input image can be injected into the LoRA model by the way of text generation image training with a small amount of input image. Therefore, the ability of the personal portrait model is divided into training and inference stages. The training stage generates image and text label data for fine-tuning the Stable Diffusion model, and obtains the face LoRA model. The inference stage generates personal portrait images based on the face LoRA model and style LoRA model.
 
 ![image](resources/framework_eng.jpg)
 
